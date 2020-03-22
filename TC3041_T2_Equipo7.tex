@@ -16,6 +16,7 @@
 \tableofcontents
 
 \section{Resumen}
+La dbms h2 cuenta con muchas caracterísicas, mencionaremos algunas de las que más llamaron nuestra atención. Es una muy buena opción cuando se tiene una aplicación de java y además si no es el caso se puede utilizar la arquitectura cliente servidor. Es muy amigable ya que entiende sentencias de SQL, su buffer pequeño, sin embargo el tamaño puede cambiarse. No tiene manejo de datos históricos por lo que no se recomienda utilizar si es que se necesita. Su almacenaje utiliza la lógica de un árbol tipo B, haciendo las consultas bastante ágiles.
 
 \section{Introducción}
 El siguiente reporte muestra una investigación profunda de cuatro bases de datos distintas: h2, inmemory.net, mysql ndb cluster y raima. Se hablará de su arquitectura, comandos, transacciones, buffer diferencial, hot and cold storage, entre otras cosas. Después, para lograr hacer un mayor análisis el equipo diseño una tabla  con 10 millones de registros, los cuales se insertaron a cada una de las bases de datos para de esta manera poder realizar una comparación profunda entre ellas y lograr ver para qué esta optimizada cada una de ellas. Es importante mencionar que la tabla mencionada es igual para cada una de las bases de datos, al igual que cada uno de los registros para garantizar que es justa la comparación entre ellas. Esperamos que el reporte sea de utilidad. 
@@ -521,6 +522,55 @@ Como se mencionó anteriormente, RDM replica a un sistema de control central la 
 \newpage
 
 \section{Comparación entre DBMS}
+\subsection{Descripción de la tabla y ejemplos}
+Decidimos realizar una tabla que representara a la poblacion mundial.Con el siguiente query se realizó la estructura de la tabla para cada una de las dbms. Conteniendo 4 columnas: el id, la edad de la persona, el nombre y su país de nacimiento. 
+
+create table poblacion (id int primary key, edad int, nombre varchar(70), pais varchar(100));
+
+
+Los datos se realizaron con la ayuda de un programa en python, a continuación se muestran algunos ejemplos de los datos insertados:
+
+insert into poblacion values (1, 68, 'Matthew', 'Bolivia');
+insert into poblacion values (313, 18, 'Christopher', 'Falkland Islands (Malvinas)');
+insert into poblacion values (2238014, 89, 'William', 'Morocco');
+insert into poblacion values (9129657, 29, 'James', 'Grenada');
+insert into poblacion values (9129664, 86, 'Mary', 'Saudi Arabia');
+insert into poblacion values (9999989, 31, 'Tara', 'Northern Mariana Islands');
+insert into poblacion values (10000000, 3, 'June', 'Greece');
+
+\subsection{Consultas realizadas en las dbms}
+
+Se realizaron tres consultas a las dbms, en la tabla de tiempos de ejecución se les hará referencia por número de query
+
+Query 1:
+SELECT * FROM poblacion
+
+Query 2:
+SELECT pais, AVG(edad)
+FROM poblacion
+GROUP BY pais
+
+Query 3:
+SELECT *
+FROM poblacion
+WHERE (pais = 'Yemen' or pais='Brazil') AND edad > 14 AND edad < 24
+
+\subsection{Tiempos de ejecución}
+Los tiempos de la siguiente tabla se encuentran en ms
+
+\begin{tabular}{||l | c | c| c|r||} 
+\hline 
+\hline & h2 & inmemory.net & mysql ndb cluster & raima\\ 
+\hline Create table & 1 & col 3 & col 4 & col5\\ 
+\hline Query 1 & 79400 & col 3 & col 4 & col5\\ 
+\hline Query 2 & 7756 & col 3 & col 4 & col5\\ 
+\hline Query 3 & 6494 & col 3 & col 4 & col5\\ 
+\hline 
+\end{tabular}
+
+\subsection{Gráficas comparativas}
+
+\subsection{Análisis de resultados}
 
 \section{Conclusiones}
 
