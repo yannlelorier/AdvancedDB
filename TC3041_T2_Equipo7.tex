@@ -149,20 +149,96 @@ No cuenta el soporte para datos históricos.
 
 \section{MySQL NDB Cluster}
 Yann Le Lorier Bárcena
+El DBMS de MySQL NDB Cluster es un sistema de administración de alta redundancia que está pensado para la computación distribuida (Oracle, s.f.)
 \subsection{Arquitectura del DBMS}
+La arquitectura del DBMS es la famosa three-tier architecture, separando en capas independientes los elementos entre el usuario y los datos en la BD.\\
+Por otro lado, este DBMS está pensado como un sistema \textit{shared-nothing}, es decir que cada componente debe de tener su propio disco y memoria, por lo que la memoria compartida no es recomendable para este administrador.
 \subsection{Tipo de almacenamiento utilizado}
 \subsection{Representación en memoria}
 \subsection{Mecanismos de compresión}
+De acuerdo con la información extraída de la documentación sobre las definiciones de la creación del Cluster (\cite{mysqlcomp}), dentro de la base de datos, existe un conjunto de variables que permiten comprimir:
+\begin{itemize}
+    \item los respaldos, y reducir el espacio utilizado en el disco, de 50\% o más. Se trata de una compresión que es equivalente al \textit{gzip--fast}. La elección entre tener o no activados los backups puede ser realizada para nodos individuales, o para todos los nodos.
+    \item Se pueden también comprimir archivos de los \textit{local checkpoint files}, que utilizan una compresión que es de igual manera, equivalente al \textit{gzip--fast}
+\end{itemize}
+
+
 \subsection{Particionamiento}
+En MySQL NDB Cluster, el particionamiento se conoce como \say{Replicas}. Se dividen por los Clusters, que dividen la información a guardar, dependiendo de la partición que se le haya asignado. Todo este proceso es manejado automáticamente por el DBMS.\\
+Es posible definir el particionamiento al nivel usuario, el NDBCLUSTER, que es usualmente definido automáticamente.\\
+La \textit{Replicas} son copias de una partición del cluster. Cada nodo en un grupo de nodos contiene una réplica. Se trata de una relación 1 a n entre la réplica y el nodo, ya que por cada nodo, normalmente existen muchas réplicas, podemos observar un ejemplo en la imagen \ref{dosnodos}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\linewidth]{replicas.png}
+    \caption{Un Cluster con dos grupos de nodos}
+    \label{dosnodos}
+\end{figure}
+
 \subsection{Operaciones DML}
+
 \subsection{Buffer diferencial, proceso de mezcla}
+NDB usa uno o más buffers de memoria para los eventos de los nodos que contienen la información. Para cada objeto NDB, existe un buffer que registra la información de los eventos que van sucediendo a nivel tabla, por lo que existe otro buffer que va registrando la información del esquema (Oracle, s.f., \cite{mysqlbuff}).\\
+Estos buffers van imprimiendo su estado en el cluster log.
 \subsection{Reconstrucción de tuplas}
 \subsection{Tipos de Joins}
 \subsection{Logging / Recovery}
 \subsection{Respaldos}
+Los respaldos de esta DBMS están basados en tres principales partes:
+\begin{itemize}
+    \item Metadata: Nombres y definiciones de todas las tablas de la base de datos
+    \item Registros de tablas: la infomación que está guardada dentro de las tablas al momento de realizar el respaldo
+    \item Registro de las transacciones: Se trata de un registro secuencial que tiene las 'instrucciones' para obtener la base de datos al momento del respaldo.
+\end{itemize}
+(Oracle, s.f. \cite{mysqlbackups})\\
+Todos los nodos realizan cada uno el respaldo con las tres partes mencionadas anteriormente, las cuales se guardan en tres archivos en el disco del nodo:
+\begin{itemize}
+    \item \textit{<backup.id>.<node.id>.ctl} Toda la información de control y la metadata mencionada anteriormente
+    \item \textit{<backup.id>.<node.id>.data} Un archivo que contiene toda la información con la que la tabla está rellenada. La información está fragmentada, dependiendo del nodo en cuestión, guardando información parcial de alguna tabla.
+    \item \textit{<backup.id>.<node.id>.log} Un registro de transacciones a las que se les realizaron el \textit{commit}. De igual forma que el archivo de data, son diferentes registros por que la información está fragmentada.
+\end{itemize}
 \subsection{Manejo de transacciones}
+Como lo dice su nombre, MySQL NDB Cluster, es un DBMS que está previsto para información fragmentada, en nodos de computación con su propia memoria y su propio disco.
+En cada cluster de la base de datos, existe una tabla en particular que se llama \textit{cluster\_transactions} que es una tabla que muestra todas las transacciones que están ocurriendo en un cluster.\\
+A continuación se describe la tabla \textit{cluster\_transactions} por columna:
+
+\begin{center}
+    \begin{tabular}{|c|c|}
+        \hline
+        node\_id & id del nodo que es el coordenador de la transacción \\
+        \hline
+        block\_instance & la instancia del bloque realizando la transacción \\
+        \hline
+        transid & id de la transacción \\
+        \hline
+        state & estado de operación\\
+        \hline
+        count\_operations & número de operaciones con llave primaria en la transacción \\
+        \hline
+        outstanding\_operations & operaciones que siguen siendo ejecutadas en los bloques locales de administración\\
+        \hline
+        inactive\_seconds & tiempo que ha transcurrido esperando al API \\
+        \hline
+        client\_node\_id & Id del nodo del cliente\\
+        \hline
+        client\_block\_ref & referencia del bloque del cliente\\
+        \hline
+    \end{tabular}
+    \captionof{table}{descripción por columna de la tabla cluster\_transactions}
+\end{center}
+
+Analizando los inconvenientes del manejo de transacciones, podemos notar ciertos aspectos:
+\begin{itemize}
+    \item Soporte de sólamente las transacciones a las que se les hicieron "commit", por lo que no se pueden ver las transacciones sin este proceso.
+    \item Procesamiento intensivo de las transacciones por que cada una tiene que tener forzosamente la fase de \say{commit}
+    \item No existen las transacciones parciales, ya que si se realiza un \say{rollback}, descarta desde el principio de la transacción, a diferencia de InnoDB, el cual permite el \say{rollback} de \say{statements} individuales.
+\end{itemize}
+(Oracle, s.f., \cite{mysqllimittrans})
 \subsection{Cold / Hot store}
+Mientras que en la documentación no existe una sección dedicada al Hot \& Cold storage, se menciona en la sección de backup troubleshooting. En esta sección habla que la recuperación de datos del backup es \say{hot} pero no lo es realmente en su totalidad, ya que explica que no existe soporte para lecturas repetidas (\textit{repeatable reads}), es decir que el DBMS no puede garantizar durante el proceso de respaldo que si intentamos leer la información nuevamente obtendremos el mismo resultado, por lo tanto existe información que es inconsistente durante este momento. (Oracle, s.f., \cite{mysqlhot})
+
 \subsection{Manejo de datos históricos}
+
 \newpage
 
 \section{Raima}
@@ -189,10 +265,16 @@ Isaac Harari Maasri
 \section{Conclusiones}
 
 \begin{thebibliography}{99}
-\bibitem{}
-\bibitem{inmemorynet} 
-In-Memory.NET,
-\\\texttt{https://inmemory.net/blog/}
+	\bibitem{mysqlbackups} Oracle. (n.d.). MySQL NDB Cluster Online Backup. Retrieved March 21, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/8.0/en/mysql-cluster-backup.html
+	\bibitem{mysqltransactions} Oracle. (n.d.). MySQL NDB Cluster The ndbinfo cluster\_transactions Table. Retrieved March 21, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/8.0/en/mysql-cluster-ndbinfo-cluster-transactions.html
+	\bibitem{mysqlhot} Oracle. (n.d.). MySQL NDB Cluster NDB Cluster Backup Troubleshooting. Retrieved March 21, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/8.0/en/mysql-cluster-backup-troubleshooting.html
+	\bibitem{mysqllimittrans} Oracle. (n.d.). MySQL NDB Cluster Limits Relating to Transaction Handling in NDB Cluster. Retrieved March 21, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/5.7/en/mysql-cluster-limitations-transactions.html
+	\bibitem{mysqlcomp} Oracle. (n.d.). MySQL NDB Cluster 8.0 :: 5.3.6 Defining NDB Cluster Data Nodes. Retrieved March 21, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/8.0/en/mysql-cluster-ndbd-definition.html
+	\bibitem{mysqlpart} Oracle. (n.d.). MySQL 5.7 Reference Manual :: 21.1.2 NDB Cluster Nodes, Node Groups, Replicas, and Partitions. Retrieved March 21, 2020, from https://dev.mysql.com/doc/refman/5.7/en/mysql-cluster-nodes-groups.html
+	\bibitem{mysqlbuff} Oracle. (n.d.). MySQL NDB Cluster 8.0 :: 7.7.3 Event Buffer Reporting in the Cluster Log. Retrieved March 22, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/8.0/en/mysql-cluster-logs-event-buffer.html
+	\bibitem{inmemorynet} 
+	In-Memory.NET,
+	\\\texttt{https://inmemory.net/blog/}
 
 \end{thebibliography}
 
