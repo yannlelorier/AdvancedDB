@@ -33,22 +33,118 @@
 \subsection{Manejo de datos históricos}
 \newpage
 
-\section{In.Memory.NET}
+\section{InMemory.NET}
 Roberto Gervacio
 \subsection{Arquitectura del DBMS}
+
+Es un paquete autónomo donde se puede llamar directamente a la mayoría de las funciones. La idea de IRDB (InMemory.Net) es poder acceder a las ventajas de la tecnología en memoria directamente en el sistema y entorno ya existente. Los datos se comprimen y guardan en el disco como parte del proceso de importación. Estos archivos de datos comprimidos pueden ser leídos por el servidor IRDB. Extrae la información a través de ODBC, OLEDB o Dot Net Data Provider. Como se muestra en Fig \ref{irdb}.
+
+\begin{figure}
+	\includegraphics[width=\linewidth]{architecture_IRDB.png} % Figure image
+	\caption{Arquitectura InMemory.NET} % Figure caption
+	\label{irdb} % Label for referencing with \ref{irbd}
+\end{figure}
+
 \subsection{Tipo de almacenamiento utilizado}
+
+Es una base de datos en memoria con almacenamiento columnar, diseñada para usar dentro del entorno Microsoft Dot Net. Aunque soporta la importación de tablas en modo no columnar, advierte funciona bien si solo hay unas pocas tablas involucradas. El modo NO COLUMNIZADO debe considerarse en este caso para estas tablas, ya que mantiene los datos en un estado sin columnas hasta que se emita el comando COLUMNIZE.
+
 \subsection{Representación en memoria}
+
+Para poder mantener tantos datos en la memoria como sea posible, los valores únicos dentro de cada columna se almacenan en una matriz de búsqueda. Otra matriz se utiliza como índice que corresponde con el valor real en la matriz de búsqueda.
+
 \subsection{Mecanismos de compresión}
+
+Cada valor se almacena una sola vez en lugar de varias veces. En el archivo físico comprimido, primero se guardan los valores únicos, seguidos del número requerido de bits utilizados para representarlo.
+
+Cuando se carga en la memoria, se usan 8 bits (char) si el número de valores únicos es 255 o menos, 16 bits (ushort) si es 65535 o menos, de lo contrario, 32 bits (int).
+
 \subsection{Particionamiento}
+
+Al ser una base de datos con almacenamiento en columnas utiliza el particionamiento vertical. Aunque pude hacerlo horizontal, pero advierte disminuye el rendimiento en esas tablas.
+
 \subsection{Operaciones DML}
+
+\textbf{SELECT}: Es la piedra angular de cualquier consulta SQL. IRDB admite la sintaxis regular de selección de SQL.
+
+\textbf{SELECT DISTINCT}: Es soportado pero está limitado internamente por el grupo por límites de cardinalidad.
+
+\textbf{SELECT *}: Es soportad pero si se tiene columnas con caracteres no soportados, no se validarán y harán que la consulta se comporte mal. IRDB está diseñado para hacer consultas agregadas rápidamente. Las consultas no agregadas se ejecutarán y también continuará ejecutándose en su totalidad. Si selecciona una gran cantidad de registros las tablas con millones de registros no son un problema, pero si pasa una consulta que realiza un SELECT * desde una tabla con cientos de millones de registros, internamente va a través del proceso de creación de la tabla desde cero y columnizarla, posiblemente quedándose sin memoria.
+
+\textbf{NOCACHE}: Como un refuerzo de rendimiento, IRDB crea tablas temporales cuando cree que las subconsultas podrían reutilizarse (por ejemplo, para JOIN anidados o donde se usan fechas dinámicas). La creación de estos archivos temporales se puede desactivar mediante la inclusión de NOCACHE.
+
+\textbf{CACHE}: La creación las tablas temporales se puede desactivar mediante la inclusión de nocache = true en
+archivo irdb.ini. La inclusión de la palabra clave CACHE en una declaración select, anula esta declaración por
+usando caché.
+
+\textbf{CASE STATEMENTS}: Suporta la siguiente estructura:
+\begin{verbatim}
+CASE WHEN logic_expression THEN SomeExpression
+WHEN logic_expression2 THEN SomeExpression2
+ELSE SomeOtherExpression END
+\end{verbatim}
+
+\textbf{COUNT}: Cuenta el número de filas de datos no nulos en la selección
+
+\textbf{COUNT (DISTINCT)}: devuelve el número de valores distintos dentro de una tabla.
+
+\textbf{SUM (DISTINCT)}: Cuando se le da un parámetro, realizará una suma única en esa columna. Si hay
+valores duplicados solo se suman una vez. Con múltiples parámetros (que deben ser campos de la base de datos), encontrará los valores únicos, y suma la primera columna.
+
+\textbf{OVER() / OVER (PARTITION BY )}: Permite que los valores que se devuelvan en función del resultado de una consulta secundaria dentro de una partición. Se utiliza principalmente con las funciones RANK () y DENSE\_RANK (). También se admiten SUM, MIN, MAX, ROW\_NUMBER.
+
+\textbf{JOINS}: Revisar la sección de JOINS.
+
+\textbf{GROUP BY, ORDER BY, HAVING}: Soporta las operaciones SQL.
+
+\textbf{INTERSECT}: Devuelve las filas comunes entre dos instrucciones SELECT.
+
+\textbf{EXCEPT}: Devuelve filas que están en una instrucción SELECT inicial, pero no en una consulta secundaria.
+
+\textbf{UPDATE}: La actualización en IRDB funciona de manera similar a otras bases de datos como SQL Server. Si está consultando un actualiza en la versión actual en memoria solamente. Los cambios no se conservan en el disco.
+
+\textbf{DELETE}: Hay soporte de eliminación momenatnea. Si se emite el comando Delete, se elimina solo en la versión actual en memoria. Los cambios no son conservados en disco.
+
 \subsection{Buffer diferencial, proceso de mezcla}
+
+No hay información en la documentación referente a este tópico.
+
 \subsection{Reconstrucción de tuplas}
+
+Lo hace mediante ordenamiento natural en todas las columnas en ambas tablas, luego haciendo una fusión entre ellas para encontrar las filas comunes.
+
+Implementa un algoritmo de clasificación al ordenar tablas grandes con grandes cantidades de columnas. Anteriormente utilizaba BigIntegers para clasificación. Sin embargo, era muy lento al ordenar grandes cantidades de columnas. Ahora sus algoritmos mejorados utilizan estructuras de longitudes de varios tamaños, y generan dinámicamente código y compilaciones para hacer la configuración de clasificación.
+
 \subsection{Tipos de Joins}
+
+Actualmente IRDB admite INNER y LEFT y CROSS, RIGHT JOINS y Full Joins. Se ejecutan mejor si tiene la tabla con la cardinalidad más alta primero, uniéndose contra las tablas con granularidad decreciente. Todos los joins son conducidas por la primera tabla que se asumen es la tabla principal. Soporta joins de hasta 50 dimensiones. Las consultas deben diseñarse sin bucles de unión y unirse de tal manera que las uniones fluyan desde la primera tabla o las tablas de nivel superior. Expresiones de los campos que involucran la misma tabla ahora son compatibles. Actualmente constantes por sí mismas no son compatibles.
+
 \subsection{Logging / Recovery}
+
+Almacena un registro lógico en el directorio principal. Proporciona un registro de los queriess que se ejecutan y un desglose de los principales momentos de ejecución que se realizaron en la consulta.
+
 \subsection{Respaldos}
+
+La forma de obtener infomación es a través de la importación de algun ODBC u OLEDB. Por lo que el único respaldo posible es mediante la exportación desde IRDB como parte de un script IRDBIMPORT. Para esto las tablas deben ser importado dentro de la secuencia de comandos antes de exportar.
+
+\begin{verbatim}
+--import statement
+
+SAVE TABLA <tableName> TO CSV <nombre de archivo>
+\end{verbatim}
+
 \subsection{Manejo de transacciones}
+
+No cuenta con el soporte para transacciones.
+
 \subsection{Cold / Hot store}
+
+Se basa en hot storage. Ya que todo el tiempo la infomación se encuentra en memoria y esta diseñada para cargas de trabajo con muchas transacciones.
+
 \subsection{Manejo de datos históricos}
+
+No cuenta el soporte para datos históricos.
+
 \newpage
 
 \section{MySQL NDB Cluster}
@@ -94,6 +190,9 @@ Isaac Harari Maasri
 
 \begin{thebibliography}{99}
 \bibitem{}
+\bibitem{inmemorynet} 
+In-Memory.NET,
+\\\texttt{https://inmemory.net/blog/}
 
 \end{thebibliography}
 
