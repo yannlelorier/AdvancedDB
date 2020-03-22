@@ -2,6 +2,9 @@
 \usepackage[utf8]{inputenc}
 \usepackage[spanish]{babel}
 \usepackage{hyperref}
+\usepackage{dirtytalk}
+\usepackage{soul}
+\usepackage{listings}
 
 \title{Tarea 2 Bases de Datos Avanzadas}
 
@@ -184,7 +187,7 @@ valores duplicados solo se suman una vez. Con múltiples parámetros (que deben 
 
 \textbf{UPDATE}: La actualización en IRDB funciona de manera similar a otras bases de datos como SQL Server. Si está consultando un actualiza en la versión actual en memoria solamente. Los cambios no se conservan en el disco.
 
-\textbf{DELETE}: Hay soporte de eliminación momenatnea. Si se emite el comando Delete, se elimina solo en la versión actual en memoria. Los cambios no son conservados en disco.
+\textbf{DELETE}: Hay soporte de eliminación momentánea. Si se emite el comando Delete, se elimina solo en la versión actual en memoria. Los cambios no son conservados en disco.
 
 \subsection{Buffer diferencial, proceso de mezcla}
 
@@ -202,7 +205,7 @@ Actualmente IRDB admite INNER y LEFT y CROSS, RIGHT JOINS y Full Joins. Se ejecu
 
 \subsection{Logging / Recovery}
 
-Almacena un registro lógico en el directorio principal. Proporciona un registro de los queriess que se ejecutan y un desglose de los principales momentos de ejecución que se realizaron en la consulta.
+Almacena un registro lógico en el directorio principal. Proporciona un registro de los queries que se ejecutan y un desglose de los principales momentos de ejecución que se realizaron en la consulta.
 
 \subsection{Respaldos}
 
@@ -233,11 +236,32 @@ Yann Le Lorier Bárcena
 El DBMS de MySQL NDB Cluster es un sistema de administración de alta redundancia que está pensado para la computación distribuida (Oracle, s.f.)
 \subsection{Arquitectura del DBMS}
 La arquitectura del DBMS es la famosa three-tier architecture, separando en capas independientes los elementos entre el usuario y los datos en la BD.\\
-Por otro lado, este DBMS está pensado como un sistema \textit{shared-nothing}, es decir que cada componente debe de tener su propio disco y memoria, por lo que la memoria compartida no es recomendable para este administrador.
+Por otro lado, este DBMS está pensado como un sistema \textit{shared-nothing}, es decir que cada componente debe de tener su propio disco y memoria, por lo que la memoria compartida no es recomendable para este administrador.\\
+En la figura \ref{mysqlarch}, podemos observar que la arquitectura del sistema está basada en un cluster de nodos interconectados de datos, el cual está también conectado a un servidor de administración. Como se puede acceder a los nodos de datos por medio de los nodos de SQL, cualquier dato cambiado en los nodos de datos, va a ser visible por cualquier nodo SQL. A su vez, los nodos SQL son los que se comunican con los clientes o APIs que realicen peticiones.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\linewidth]{mysqlndbarch.png}
+    \caption{Arquitectura del MySQL NDB Cluster}
+    \label{mysqlarch}
+\end{figure}
 \subsection{Tipo de almacenamiento utilizado}
 \subsection{Representación en memoria}
+La representación en memoria de cada una de las tablas se maneja de forma muy similar al MySQL tradicional. Por cada columna declarada en la definición de una nueva tabla, se suman el tamaño del tipo de dato que se está tomando en cuenta. Al agregar datos que no son 'NULLABLE', se ahorran algunos bytes por el overhead. Al agregar alguna PRIMARY KEY o algún valor UNIQUE, se tiene que sumar aproxmadamente 29 bytes por el índice hash.\\
+Se trata, efectivamente, de un espacio considerable por registro, pero el hecho que existan los índices hash permiten una lectura muy rápida de los datos.
+
+\begin{lstlisting}[language=sql]
+    CREATE TABLE example (
+  a INT NOT NULL,
+  b INT NOT NULL,
+  c INT NOT NULL,
+  PRIMARY KEY(a),
+  UNIQUE(b)
+) ENGINE=NDBCLUSTER;
+\end{lstlisting}
+(Oracle, s.f., \cite{mysqlcomp})
+
 \subsection{Mecanismos de compresión}
-De acuerdo con la información extraída de la documentación sobre las definiciones de la creación del Cluster (\cite{mysqlcomp}), dentro de la base de datos, existe un conjunto de variables que permiten comprimir:
+De acuerdo con la información extraída de la documentación sobre las definiciones de la creación del Cluster (Oracle, s.f., \cite{mysqlcomp}), dentro de la base de datos, existe un conjunto de variables que permiten comprimir:
 \begin{itemize}
     \item los respaldos, y reducir el espacio utilizado en el disco, de 50\% o más. Se trata de una compresión que es equivalente al \textit{gzip--fast}. La elección entre tener o no activados los backups puede ser realizada para nodos individuales, o para todos los nodos.
     \item Se pueden también comprimir archivos de los \textit{local checkpoint files}, que utilizan una compresión que es de igual manera, equivalente al \textit{gzip--fast}
@@ -245,6 +269,7 @@ De acuerdo con la información extraída de la documentación sobre las definici
 
 
 \subsection{Particionamiento}
+Actualmente, el único algoritmo de particionamiento es el de hashing.\\
 En MySQL NDB Cluster, el particionamiento se conoce como \say{Replicas}. Se dividen por los Clusters, que dividen la información a guardar, dependiendo de la partición que se le haya asignado. Todo este proceso es manejado automáticamente por el DBMS.\\
 Es posible definir el particionamiento al nivel usuario, el NDBCLUSTER, que es usualmente definido automáticamente.\\
 La \textit{Replicas} son copias de una partición del cluster. Cada nodo en un grupo de nodos contiene una réplica. Se trata de una relación 1 a n entre la réplica y el nodo, ya que por cada nodo, normalmente existen muchas réplicas, podemos observar un ejemplo en la imagen \ref{dosnodos}.
@@ -310,7 +335,7 @@ A continuación se describe la tabla \textit{cluster\_transactions} por columna:
 
 Analizando los inconvenientes del manejo de transacciones, podemos notar ciertos aspectos:
 \begin{itemize}
-    \item Soporte de sólamente las transacciones a las que se les hicieron "commit", por lo que no se pueden ver las transacciones sin este proceso.
+    \item Soporte de sólamente las transacciones a las que se les hicieron \say{commit}, por lo que no se pueden ver las transacciones sin este proceso.
     \item Procesamiento intensivo de las transacciones por que cada una tiene que tener forzosamente la fase de \say{commit}
     \item No existen las transacciones parciales, ya que si se realiza un \say{rollback}, descarta desde el principio de la transacción, a diferencia de InnoDB, el cual permite el \say{rollback} de \say{statements} individuales.
 \end{itemize}
