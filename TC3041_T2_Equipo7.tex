@@ -2,6 +2,12 @@
 \usepackage[utf8]{inputenc}
 \usepackage[spanish]{babel}
 \usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+}
 \usepackage{dirtytalk}
 \usepackage{soul}
 \usepackage{listings}
@@ -328,22 +334,27 @@ No cuenta el soporte para datos históricos.
 \newpage
 
 \section{MySQL NDB Cluster}
-Yann Le Lorier Bárcena
+Yann Le Lorier Bárcena\\
 El DBMS de MySQL NDB Cluster es un sistema de administración de alta redundancia que está pensado para la computación distribuida (Oracle, s.f.)
+
 \subsection{Arquitectura del DBMS}
 La arquitectura del DBMS es la famosa three-tier architecture, separando en capas independientes los elementos entre el usuario y los datos en la BD.\\
 Por otro lado, este DBMS está pensado como un sistema \textit{shared-nothing}, es decir que cada componente debe de tener su propio disco y memoria, por lo que la memoria compartida no es recomendable para este administrador.\\
 En la figura \ref{mysqlarch}, podemos observar que la arquitectura del sistema está basada en un cluster de nodos interconectados de datos, el cual está también conectado a un servidor de administración. Como se puede acceder a los nodos de datos por medio de los nodos de SQL, cualquier dato cambiado en los nodos de datos, va a ser visible por cualquier nodo SQL. A su vez, los nodos SQL son los que se comunican con los clientes o APIs que realicen peticiones.
 \begin{figure}
     \centering
-    \includegraphics[width=0.4\linewidth]{mysqlndbarch.png}
+    \includegraphics[width=0.6\linewidth]{mysqlndbarch.png}
     \caption{Arquitectura del MySQL NDB Cluster}
     \label{mysqlarch}
 \end{figure}
+
 \subsection{Tipo de almacenamiento utilizado}
+Al ser una base de datos \say{shared-nothing}, cuando el usuario realiza un query, el administrador tiene que ejecutar un protocolo de coordinación, ya que la base de datos se encuentra en diferentes computadoras, cada una con su propio disco y su propia memoria, por lo que a esto, se le llama \say{database sharding}, que es donde está particionada de forma horizontal la información, para dividir la carga de trabajo y disminuir la posibilidad de fallas.\\
+En la partición horizontal, son los registros que son separados, y que se distribuyen a los \say{shards} de los servidores de la base de datos.
+
 \subsection{Representación en memoria}
 La representación en memoria de cada una de las tablas se maneja de forma muy similar al MySQL tradicional. Por cada columna declarada en la definición de una nueva tabla, se suman el tamaño del tipo de dato que se está tomando en cuenta. Al agregar datos que no son 'NULLABLE', se ahorran algunos bytes por el overhead. Al agregar alguna PRIMARY KEY o algún valor UNIQUE, se tiene que sumar aproxmadamente 29 bytes por el índice hash.\\
-Se trata, efectivamente, de un espacio considerable por registro, pero el hecho que existan los índices hash permiten una lectura muy rápida de los datos.
+Se trata, efectivamente, de un espacio considerable por registro, pero el hecho que existan los índices hash permiten una lectura muy rápida de los datos. (Oracle, s.f., \cite{mysqlcomp})
 
 \begin{lstlisting}[language=sql]
     CREATE TABLE example (
@@ -378,13 +389,47 @@ La \textit{Replicas} son copias de una partición del cluster. Cada nodo en un g
 \end{figure}
 
 \subsection{Operaciones DML}
+\begin{itemize}
+    \item SELECT: El select funciona como en MySQL, salvo que se pueden también usar particiones, con el nombre de la tabla referenciada
+    \item WITH: son subcláusulas que están soportadas en el statement de SELECT
+    \item INSERT: Es para meter nuevos registros a una tabla. Se puede también hacer un INSERT...SELECT para meter datos que estaban originalmente en otra tabla.
+    \item UPDATE: soporta el uso de tablas particionadas, y se utiliza para editar datos dentro de una tabla, así también checa cuáles son las tablas particionadas que cumplen con los requisitos de la condición de la cláusula UPDATE.
+    \item DELETE borra registros en la tabla en donde se cumplen algunos requisitos dados explicitamente. Es necesario tener los privilegios DELETE para poder ejecutarlo. Nota: cuando no es necesario conocer el número de registros borrados, es mejor utilizar TRUNCATE\_TABLE, ya que se ejecuta de forma más rápida. Este comando también soporta el SELECT de tablas particionadas.
+    \item LOCK permite el bloqueo de las tablas especificadas con un tipo de bloqueo (lectura, edición)
+    \item EXPLAIN permite la visualización de cómo se ejecuta un comando MySQL, el cual funciona con SELECT, DELETE, UPDATE, INSERT y REPLACE.
+    \item CALL llama a un procedimiento creado anteriormente.
+    \item Tabla MERGE, es una mezcla entre dos tablas que están definidas de exactamente la misma forma, con el mismo orden de los datos utilizados. Se crea un archivo .mrg el cual contiene las dos tablas que se están utilizando como una sola.
+    
+\end{itemize}
+
+A continuación un ejemplo de como se utiliza el MERGE ENGINE:
+\begin{lstlisting}[language=sql]
+CREATE TABLE t1 (
+a INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+message CHAR(20)) ENGINE=MyISAM;
+CREATE TABLE t2 (
+a INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+message CHAR(20)) ENGINE=MyISAM;
+INSERT INTO t1 (message) VALUES ('Testing'),('table'),('t1');
+INSERT INTO t2 (message) VALUES ('Testing'),('table'),('t2');
+CREATE TABLE total (
+a INT NOT NULL AUTO_INCREMENT,
+message CHAR(20), INDEX(a))
+ENGINE=MERGE UNION=(t1,t2) INSERT_METHOD=LAST;
+\end{lstlisting}
 
 \subsection{Buffer diferencial, proceso de mezcla}
 NDB usa uno o más buffers de memoria para los eventos de los nodos que contienen la información. Para cada objeto NDB, existe un buffer que registra la información de los eventos que van sucediendo a nivel tabla, por lo que existe otro buffer que va registrando la información del esquema (Oracle, s.f., \cite{mysqlbuff}).\\
 Estos buffers van imprimiendo su estado en el cluster log.
 \subsection{Reconstrucción de tuplas}
+El particionamiento del DBMS, al estar basado en hashing de índices, tiene una reconstrucción que se basa en la llave primaria, y actualmente, es posible tener particiones de más de 16GB, permitiendo (para columnas fijas) un particionamiento de hasta 128TB.
+
 \subsection{Tipos de Joins}
+Los joins que se puedne utilizar en MySQL NDB CLuster son los mismos que se pueden utilizar en MySQL, con la característica añadida del PUSH\_DOWN JOIN, el cual permite conocer las tablas padres y las tablas hijo cuando se realiza el JOIN, ya sea externo o bien semi-join, y no sólamente usando una PRIMARY KEY. (Oracle, s.f., \cite{mysqlnew})
+
 \subsection{Logging / Recovery}
+El DBMS permite rescatar datos por medio de los archivos que se mencionan en la sección de respaldos, y por medio de un comando llamado \textit{ndb\_restore}, el cual lee los archivos que se crean por el respaldo realizado anteriormente, e inserta la información de manera automática en la base de datos. (Oracle, s.f., \cite{mysqlrestore})
+
 \subsection{Respaldos}
 Los respaldos de esta DBMS están basados en tres principales partes:
 \begin{itemize}
@@ -523,40 +568,52 @@ Como se mencionó anteriormente, RDM replica a un sistema de control central la 
 
 \section{Comparación entre DBMS}
 \subsection{Descripción de la tabla y ejemplos}
-Decidimos realizar una tabla que representara a la poblacion mundial.Con el siguiente query se realizó la estructura de la tabla para cada una de las dbms. Conteniendo 4 columnas: el id, la edad de la persona, el nombre y su país de nacimiento. 
+Decidimos realizar una tabla que representará a la población mundial. Con el siguiente query se realizó la estructura de la tabla para cada una de las DBMS. Conteniendo 4 columnas: el id, la edad de la persona, el nombre y su país de nacimiento. \\
 
-create table poblacion (id int primary key, edad int, nombre varchar(70), pais varchar(100));
+\begin{lstlisting}[language=sql]
+CREATE TABLE poblacion (id INT PRIMARY KEY, edad INT, nombre VARCHAR(70), pais VARCHAR(100));
+\end{lstlisting}
+
 
 
 Los datos se realizaron con la ayuda de un programa en python, a continuación se muestran algunos ejemplos de los datos insertados:
 
-insert into poblacion values (1, 68, 'Matthew', 'Bolivia');
-insert into poblacion values (313, 18, 'Christopher', 'Falkland Islands (Malvinas)');
-insert into poblacion values (2238014, 89, 'William', 'Morocco');
-insert into poblacion values (9129657, 29, 'James', 'Grenada');
-insert into poblacion values (9129664, 86, 'Mary', 'Saudi Arabia');
-insert into poblacion values (9999989, 31, 'Tara', 'Northern Mariana Islands');
-insert into poblacion values (10000000, 3, 'June', 'Greece');
+\begin{lstlisting}[language=sql]
+INSERT INTO poblacion VALUES (1, 68, 'Matthew', 'Bolivia');
+INSERT INTO poblacion VALUES (313, 18, 'Christopher', 'Falkland Islands (Malvinas)');
+INSERT INTO poblacion VALUES (2238014, 89, 'William', 'Morocco');
+INSERT INTO poblacion VALUES (9129657, 29, 'James', 'Grenada');
+INSERT INTO poblacion VALUES (9129664, 86, 'Mary', 'Saudi Arabia');
+INSERT INTO poblacion VALUES (9999989, 31, 'Tara', 'Northern Mariana Islands');
+INSERT INTO poblacion VALUES (10000000, 3, 'June', 'Greece');
+\end{lstlisting}
 
-\subsection{Consultas realizadas en las dbms}
+    \subsection{Consultas realizadas en las DBMS}
 
 Se realizaron tres consultas a las dbms, en la tabla de tiempos de ejecución se les hará referencia por número de query
 
 Query 1:
+\begin{lstlisting}[language=sql]
 SELECT * FROM poblacion
+\end{lstlisting}
 
 Query 2:
+\begin{lstlisting}[language=sql]
 SELECT pais, AVG(edad)
 FROM poblacion
 GROUP BY pais
+\end{lstlisting}
 
 Query 3:
+\begin{lstlisting}[language=sql]
 SELECT *
 FROM poblacion
 WHERE (pais = 'Yemen' or pais='Brazil') AND edad > 14 AND edad < 24
 
+\end{lstlisting}
+
 \subsection{Tiempos de ejecución}
-Los tiempos de la siguiente tabla se encuentran en ms
+Los tiempos de la siguiente tabla se encuentran en ms.
 
 \begin{tabular}{||l | c | c| c|r||} 
 \hline 
@@ -575,6 +632,7 @@ Los tiempos de la siguiente tabla se encuentran en ms
 \section{Conclusiones}
 
 \begin{thebibliography}{99}
+%H2
 	\bibitem{h2features} H2database, (n.d). Features. Retrieved March 20, 2020, from www.h2database.com/html/features.html 
 	
 	\bibitem{h2performance} H2database, (n.d). Performance. Retrieved March 20, 2020, from http://www.h2database.com/html/performance.html
@@ -587,18 +645,22 @@ Los tiempos de la siguiente tabla se encuentran en ms
 	
 	\bibitem{h2database} Dbdb. (n.d). H2 Database of Databases. Retrieved March 20, 2020 from https://dbdb.io/db/h2
 
-    \bibitem{h2vsoracle} Db-engines. (2020). System Properties Comparison H2 vs. Oracle. Retrieved March 20, 2020 from https://db-engines.com/en/system/H2%3BOracle
+    \bibitem{h2vsoracle} Db-engines. (2020). System Properties Comparison H2 vs. Oracle. Retrieved March 20, 2020 from https://db-engines.com/en/system/H2\%3BOracle
     
-    \bibitem{h2roadmap} H2database, (n.d). Roadmap. Retrieved March 20, 2020, from https://www.h2database.com/html/roadmap.html?highlight=partitioning&search=partitioning#firstFound
+    \bibitem{h2roadmap} H2database, (n.d). Roadmap. Retrieved March 20, 2020, from https://www.h2database.com/html/roadmap.html?highlight=partitioning\&search=partitioning\#firstFound
     
-    \bibitem{h2commands} H2database, (n.d). Commands. Retrieved March 20, 2020, from https://www.h2database.com/html/commands.html?highlight=select&search=select#firstFound
+    \bibitem{h2commands} H2database, (n.d). Commands. Retrieved March 20, 2020, from https://www.h2database.com/html/commands.html?highlight=select\&search=select\#firstFound
     
-    \bibitem{h2backup} H2database, (n.d). Backup. Retrieved March 20, 2020, from https://www.h2database.com/javadoc/org/h2/tools/Backup.html?highlight=backup&search=backup
+    \bibitem{h2backup} H2database, (n.d). Backup. Retrieved March 20, 2020, from https://www.h2database.com/javadoc/org/h2/tools/Backup.html?highlight=backup\&search=backup
     
     \bibitem{h2grammar} H2database, (n.d). Backup. Retrieved March 20, 2020, from http://www.h2database.com/html/grammar.html
     
     \bibitem{h2advanced} H2database, (n.d). Backup. Retrieved March 20, 2020, from http://www.h2database.com/html/advanced.html
     
+    %MYSQL NDB
+    \bibitem{mysqlnew} Oracle. (n.d.). MySQL NDB Cluster 8.0 :: 3.4 What is New in NDB Cluster. Retrieved March 22, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/8.0/en/mysql-cluster-what-is-new.html
+    \bibitem{mysqlrestore} Oracle. (n.d.). MySQL 5.7 Reference Manual :: 21.4.24 ndb\_restore - Restore an NDB Cluster Backup. Retrieved from https://dev.mysql.com/doc/refman/5.7/en/mysql-cluster-programs-ndb-restore.html
+    \bibitem{mysqlpartitioning}  Shiya. (2017, August 23). An Overview of MySQL NDB Cluster. Retrieved March 22, 2020, from https://clusterengine.me/an-overview-of-mysql-ndb-cluster/ 
 	\bibitem{mysqlbackups} Oracle. (n.d.). MySQL NDB Cluster Online Backup. Retrieved March 21, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/8.0/en/mysql-cluster-backup.html
 	\bibitem{mysqltransactions} Oracle. (n.d.). MySQL NDB Cluster The ndbinfo cluster\_transactions Table. Retrieved March 21, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/8.0/en/mysql-cluster-ndbinfo-cluster-transactions.html
 	\bibitem{mysqlhot} Oracle. (n.d.). MySQL NDB Cluster NDB Cluster Backup Troubleshooting. Retrieved March 21, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/8.0/en/mysql-cluster-backup-troubleshooting.html
@@ -606,9 +668,13 @@ Los tiempos de la siguiente tabla se encuentran en ms
 	\bibitem{mysqlcomp} Oracle. (n.d.). MySQL NDB Cluster 8.0 :: 5.3.6 Defining NDB Cluster Data Nodes. Retrieved March 21, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/8.0/en/mysql-cluster-ndbd-definition.html
 	\bibitem{mysqlpart} Oracle. (n.d.). MySQL 5.7 Reference Manual :: 21.1.2 NDB Cluster Nodes, Node Groups, Replicas, and Partitions. Retrieved March 21, 2020, from https://dev.mysql.com/doc/refman/5.7/en/mysql-cluster-nodes-groups.html
 	\bibitem{mysqlbuff} Oracle. (n.d.). MySQL NDB Cluster 8.0 :: 7.7.3 Event Buffer Reporting in the Cluster Log. Retrieved March 22, 2020, from https://dev.mysql.com/doc/mysql-cluster-excerpt/8.0/en/mysql-cluster-logs-event-buffer.html
+	
+	%INMEMORY
 	\bibitem{inmemorynet} 
 	In-Memory.NET,
     \\\texttt{https://inmemory.net/blog/}
+    
+    %RAIMA
     \bibitem{Rpdf1} Warren, W. (2016, enero). Raima Database Manager Version 14 Architecture and Features [PDF file]. \href{https://raima.com/wp-content/uploads/RDM-14.0-White-Paper.pdf}{\ul{https://raima.com/wp-content/uploads/RDM-14.0-White-Paper.pdf}}\par
 	\bibitem{Rinmemory} Raima. (2019, November 18). In-Memory Database Questions and Answers. Retrieved March 19, 2020, from \href{https://raima.com/in-memory-database-qa/}{\ul{https://raima.com/in-memory-database-qa/}} \par
 	\bibitem{Rarch} Raima. (2020, March 11). RDM Architecture. Retrieved March 19, 2020, from \href{https://raima.com/architecture/}{\ul{https://raima.com/architecture/}} \par
