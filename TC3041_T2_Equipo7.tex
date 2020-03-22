@@ -17,20 +17,101 @@
 \section{Introducción}
 
 \section{H2}
+Alejandra Nissan 
+
 \subsection{Arquitectura del DBMS}
+Existen diferentes arquitecturas, la manera “Embedded”: abre la base de datos desde una máquina virtual
+
+
+Server mode: se conecta remotamente, usando JDBC lo cual se explicará más adelante
+ 
+
+Mixed mode: la aplicación tiene manera “embedded” pero se conecta a otra aplicación mediante un servidor
+  
+
+
+La arquitectura de la DBMS de h2 esta conformada por varias capas, a continuación, se explicarán:
+\begin{itemize}
+\item JDBC driver: se encarga de conectar la aplicación de java con la base de datos. (En caso de usar el tipo servidor o mezclado)
+\item Manejo de conexión y la sesión con la base de datos
+\item SQL parser: entiende sentencias SQL
+\item Ejecución y planeación de comandos: no se muestra una representación intermedia del query, simplemente trata de eficientizarlo lo más posible
+\item Tabla, índices y restricciones: los incides se almacenan como un tipo especial de tabla
+\item Deshacer log, rehacer log – capa de transacción: quizá se desea deshacer una operación o rehacerla y h2 tiene comandos propios para eso
+\item Motor árbol tipo B para la memoria: contiene páginas de almacenamiento organizadas en un árbol tipo B para agilizar las consultas a la base de datos.
+\item Abstracción del sistema de archivos: utiliza un acceso aleatorio a archivos, esto para tratar de la misma manera a bases de datos en memoria o en disco ya que h2 apoya las dos
+
+\end{itemize}
+
 \subsection{Tipo de almacenamiento utilizado}
+Como se mencionó anteriormente, h2 utiliza árboles tipo B para almacenar información. Sin embargo, dentro de ese árbol tipo B se organiza con un almacenamiento de tipo híbrido. Se guarda una entrada al árbol B por cada columna con índice único y las columnas relacionadas a él, a menos de que sean muy grandes. Dado ese caso, se almacenan externamente.   
+
 \subsection{Representación en memoria}
+Utiliza MVstore lo cual hace referencia a “multi-version store”. Cada segmento puede ser accedido mediante el mapa de la interfaz. Es rápido para realizar operaciones de escritura y lectura, y soporta las transacciones. Si no se determina ningún archivo, el mapa funciona puramente en memoria. 
+
 \subsection{Mecanismos de compresión}
+Utiliza XML y lossles data compression. 
+XML utiliza datos que se describen a si mismos almacenando en ellos la información de su estructura. Lossles data compression logra que como su nombre lo dice no se pierda información al comprimirla y se pueda así revertir perfectamente.  Utiliza dos algoritmos, LZF y DEFLATE, el primero comprime menos pero es más rápido que el segundo.  
+
+
+
 \subsection{Particionamiento}
+La documentación de H2 menciona tener el particionamiento de tablas. Sin embargo, en internet muchos usuarios reclaman fallas y en otro sitio web se menciona que no cuenta con particionamiento. 
+
+
 \subsection{Operaciones DML}
+Soporta estándar SQL, por lo que se pueden realizar querys principales de SELECT, INSERT, UPDATE Y DELETE.  Además de otros múltiples comandos y detalles dentro de ellos como group by, where y operaciones de agregación. 
+A continuación, se muestra una lista de algunas de las operaciones:
+
+\begin{itemize}
+\item Select
+\item Insert
+\item Update
+\item Delete
+\item Backup
+\item Call
+\item Execute immediate
+\item Explain
+\item Merge into
+\item Merge using
+\item Runscript
+\item Script
+\item Show
+\item Explicit table
+\item Table value
+\item With
+
+\end{itemize}
+
 \subsection{Buffer diferencial, proceso de mezcla}
+H2 cuenta con un tamaño definido y es bastante pequeño. Se puede alterar ese tamaño o usar uno de segundo nivel.  
+
+Al hacer la llamada fsync los buffers se vacían. Por default MySQL llama a fsync en cada entrada, lo cual hace más lento al sistema. Lo que hace H2 es atrasar todas las transacciones de escritura, pero esto puede llegar a ser peligroso debido a que si se apaga el sistema puede perderse información. 
+
+Los cambios que se realizan en la base de datos son guardados en los buffers en memoria escribiéndose todo en un mismo lugar y después de cierto tiempo se pasan a disco con una operación de escritura. Las páginas se serializan y de manera opcional se comprimen. 
+
 \subsection{Reconstrucción de tuplas}
+No hay información en la documentación referente a este tópico.
+
 \subsection{Tipos de Joins}
+H2 cuenta con left/right joins, outer join e inner join. No soporta a cross y a natural joins, aunque natural join se puede realizar con las condiciones de inner join. 
+
 \subsection{Logging / Recovery}
+Todas las transacciones que se realizan a la base de datos se guardan en el log de transacción y antes de dejarlo de usar se pasa la información al disco. En caso de que no existiera una conexión estable se queda la información almacenada en el transaction log. 
+
 \subsection{Respaldos}
+Para realizar los respaldos la base de datos debe de estar cerrada o se debe de usar sino el modo silencioso y se debe ejecutar el comando BACKUP de SQL. Se copia toda la información en un archivo para guardar el estado actual de la base de datos.  
+
 \subsection{Manejo de transacciones}
+Se debe garantizar que el archivo de log esté en el disco duro antes de que se confirme la transacción por realizada. Se utilizan distintos métodos, como por ejemplo escribir en sincronización en los archivos. H2 utiliza rwd donde cada actualización se escribe en sincronía con el almacenamiento y también usa rws. Todo esto se escirbe en los buffers y después se vacían, para que sea más rápido. 
+
 \subsection{Cold / Hot store}
+Su almacenamiento es jerárquico, ya que utiliza la estructura de un árbol. Claro que ese árbol finalmente esta descrito en un archivo, por lo que la página 1 referencia a la página 1 y 2, la página 2 apunta a 140 entradas de una rama, etc. Por lo que el acceso más rápido es a las partes superiores del árbol. 
+
 \subsection{Manejo de datos históricos}
+No se encontró información en la documentación de que tenga funciones para creación de tablas históricas.  Sin embargo, con triggers se puede simular. 
+
+
 \newpage
 
 \section{InMemory.NET}
