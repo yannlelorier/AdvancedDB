@@ -630,6 +630,11 @@ Los tiempos de la siguiente tabla se encuentran en ms.
 \subsection{Análisis de resultados}
 
 \section{Conclusiones}
+Cada sistema manejador de base de datos investigado en este documento está desarrollado para cubrir una necesidad específica del cliente. Es cierto que las cuatro realizan funciones básicas de una base de datos como insertar un registro, recuperar y realizar operaciones con la información, actualizar y borrar registros. Es en la parte de aplicación en donde se selecciona una u otra DBMS, dependiendo de su enfoque.
+
+Cada una, al tener diferentes objetivos, está optimizada para ciertas cosas. Aunque suelen tener debilidades o puntos de mejora, es normal porque al ser una base de datos en memoria, los recursos son limitados. Por ejemplo InMemory.Net y Raima utilizan hot storage, que sirve crear una copia de la base de datos al mismo tiempo que se lee la información de la DB. Mientras que para MySQL NDB no primordial tener integrado hot storage.
+
+También con las funciones DML (INSERT, UPDATE, DELETE), se puede tener una idea de cuál es la más óptima en cada DBMS. Al momento de elegir tu DBMS debes de tomar en cuenta qué necesidades tiene tu negocio para saber cuál elegir.
 
 \begin{thebibliography}{99}
 %H2
