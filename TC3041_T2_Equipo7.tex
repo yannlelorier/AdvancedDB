@@ -13,6 +13,32 @@
 \usepackage{listings}
 
 \title{Tarea 2 Bases de Datos Avanzadas}
+\author{Roberto Gervacio}
+\additionalaffiliation{%
+\institution{Tecnológico de Monterrey}
+\streetaddress{Av. Carlos Lazo 100, Alvaro Obregón}
+\city{Mexico City}
+\country{Mexico}}
+\author{Isaac Harari}
+\additionalaffiliation{%
+\institution{Tecnológico de Monterrey}
+\streetaddress{Av. Carlos Lazo 100, Alvaro Obregón}
+\city{Mexico City}
+\country{Mexico}}
+\author{Yann Le Lorier}
+\additionalaffiliation{%
+\institution{Tecnológico de Monterrey}
+\streetaddress{Av. Carlos Lazo 100, Alvaro Obregón}
+\city{Mexico City}
+\country{Mexico}}
+\author{Alejandra Nissan}
+\additionalaffiliation{%
+\institution{Tecnológico de Monterrey}
+\streetaddress{Av. Carlos Lazo 100, Alvaro Obregón}
+\city{Mexico City}
+\country{Mexico}}
+
+
 
 
 \begin{document}
@@ -618,23 +644,61 @@ Los tiempos de la siguiente tabla se encuentran en ms.
 \begin{tabular}{||l | c | c| c|r||} 
 \hline 
 \hline & h2 & inmemory.net & mysql ndb cluster & raima\\ 
-\hline Create table & 1 & col 3 & col 4 & col5\\ 
-\hline Query 1 & 79400 & col 3 & col 4 & col5\\ 
-\hline Query 2 & 7756 & col 3 & col 4 & col5\\ 
-\hline Query 3 & 6494 & col 3 & col 4 & col5\\ 
+\hline Create table & 1 & 15 & 4 & 3\\ 
+\hline Query 1 & 79400 & 8240 & 12470 & 20292\\ 
+\hline Query 2 & 7756 & 55009 & 30461 4 & 21044\\ 
+\hline Query 3 & 6494 & 1562 & 1759 & 1572\\ 
 \hline 
 \end{tabular}
 
 \subsection{Gráficas comparativas}
 
+Podemos observar en las figuras \ref{create}, \ref{insert}, \ref{q1}, \ref{q2} y \ref{q3}, los diferentes tiempos de ejecución, visualmente. 
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\linewidth]{create.png}
+    \caption{Tiempos de ejecución para el CREATE de la DB}
+    \label{create}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\linewidth]{insert.png}
+    \caption{Tiempos de ejecución para los 10M de registros nuevos}
+    \label{insert}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\linewidth]{q1.png}
+    \caption{Tiempos de ejecución para el primer query}
+    \label{q1}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\linewidth]{q2.png}
+    \caption{Tiempos de ejecución para el segundo query}
+    \label{q2}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\linewidth]{q3.png}
+    \caption{Tiempos de ejecución para el tercer query}
+    \label{q3}
+\end{figure}
+
+
 \subsection{Análisis de resultados}
 
 \section{Conclusiones}
-Cada sistema manejador de base de datos investigado en este documento está desarrollado para cubrir una necesidad específica del cliente. Es cierto que las cuatro realizan funciones básicas de una base de datos como insertar un registro, recuperar y realizar operaciones con la información, actualizar y borrar registros. Es en la parte de aplicación en donde se selecciona una u otra DBMS, dependiendo de su enfoque.
+Cada sistema manejador de base de datos investigado en este documento está desarrollado para cubrir una necesidad específica del cliente. Es cierto que las cuatro realizan funciones básicas de una base de datos como insertar un registro, recuperar y realizar operaciones con la información, actualizar y borrar registros. Es en la parte de aplicación en donde se selecciona una u otra DBMS, dependiendo de su enfoque.\\
 
-Cada una, al tener diferentes objetivos, está optimizada para ciertas cosas. Aunque suelen tener debilidades o puntos de mejora, es normal porque al ser una base de datos en memoria, los recursos son limitados. Por ejemplo InMemory.Net y Raima utilizan hot storage, que sirve crear una copia de la base de datos al mismo tiempo que se lee la información de la DB. Mientras que para MySQL NDB no primordial tener integrado hot storage.
+Cada una, al tener diferentes objetivos, está optimizada para ciertas cosas. Aunque suelen tener debilidades o puntos de mejora, es normal porque al ser una base de datos en memoria, los recursos son limitados. Por ejemplo InMemory.Net y Raima utilizan hot storage, que sirve crear una copia de la base de datos al mismo tiempo que se lee la información de la DB. Mientras que para MySQL NDB no está explicado explícitamente el manejo de datos en caliente.\\
 
-También con las funciones DML (INSERT, UPDATE, DELETE), se puede tener una idea de cuál es la más óptima en cada DBMS. Al momento de elegir tu DBMS debes de tomar en cuenta qué necesidades tiene tu negocio para saber cuál elegir.
+También con las funciones DML (INSERT, UPDATE, DELETE), se puede tener una idea de cuál es la más óptima en cada DBMS. Al momento de elegir tu DBMS se debe de tomar en cuenta qué necesidades tiene el negocio para saber cuál elegir.
 
 \begin{thebibliography}{99}
 %H2
