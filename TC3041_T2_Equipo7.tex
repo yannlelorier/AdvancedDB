@@ -560,7 +560,7 @@ Para evitar \textbf{}{deadlocks} en una transacción que incluye varias sentenci
 Si se llegara a producir un \textit{timeout} durante la ejecución de una instrucción de modificación de la base de datos, la respuesta correcta es hacer \textit{ROLLBACK}
 a la transacción y luego reiniciarla. \cite{Rtrans}
 \subsection{Cold / Hot store}
-Raima tiene la habilidad de crear una copia de seguridad de la base de datos activa. \cite{Rserv}
+Raima tiene la habilidad de crear una copia de seguridad de la base de datos activa mientras se leen los mismos. Por lo cual se basa en hot storage. \cite{Rserv}
 \subsection{Manejo de datos históricos}
 Como se mencionó anteriormente, RDM replica a un sistema de control central la información, el cual mantiene un historial permanente de todos los estados de los dispositivos. \cite{Rwiki}
 
